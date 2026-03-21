@@ -25,17 +25,17 @@ export function HabitList() {
   };
 
   return (
-    <div className="bg-[#eee] min-h-screen w-full max-w-[375px] mx-auto relative overflow-hidden">
+    <div className="bg-[#eee] min-h-screen w-full max-w-[560px] mx-auto relative overflow-hidden">
       {/* ヘッダー */}
       <div className="absolute h-[172px] left-0 overflow-clip top-0 w-full">
         {/* 背景 */}
         <div
-          className="absolute h-[172px] left-0 rounded-bl-[40px] rounded-br-[40px] top-0 w-[375px]"
+          className="absolute h-[172px] left-0 rounded-bl-[40px] rounded-br-[40px] top-0 w-full"
           style={{ backgroundColor: COLOR_MAP[settings.themeColor] }}
         />
 
         {/* タイトルと設定ボタン */}
-        <div className="-translate-x-1/2 absolute flex items-start justify-between left-1/2 top-[91px] w-[315px]">
+        <div className="-translate-x-1/2 absolute flex items-start justify-between left-1/2 top-[91px] w-[calc(100%-60px)]">
           <div className="flex flex-col font-['Nunito_Sans_7pt_SemiExpanded:Bold','Noto_Sans_JP:Bold',sans-serif] gap-[6px] items-start justify-center leading-[20px]">
             <p className="text-[26px] text-white tracking-[1.144px]">やめログ</p>
             <p className="text-[#fff] text-[10px] tracking-[0.44px]">やめたい習慣カウンター</p>
@@ -45,7 +45,7 @@ export function HabitList() {
       </div>
 
       {/* メインコンテンツ */}
-      <div className="absolute flex flex-col gap-[48px] items-start left-[30px] top-[201px] w-[315px]">
+      <div className="absolute flex flex-col gap-[48px] items-start left-[30px] right-[30px] top-[201px] w-auto">
         {/* 習慣リスト */}
         <div className="flex flex-col gap-[16px] items-start w-full">
           {habits.map((habit) => (

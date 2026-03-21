@@ -3,7 +3,9 @@ import { useNavigate } from 'react-router';
 import { useHabits } from '../contexts/HabitsContext';
 import { useSettings } from '../contexts/SettingsContext';
 import { DeleteConfirmModal } from './DeleteConfirmModal';
+import { HabitIcon } from './HabitIcon';
 import { COLOR_MAP } from '../types/settings';
+import { HABIT_ICON_OPTIONS } from '../constants/habitIcons';
 import type { Habit } from '../types/habit';
 import svgPaths from '../../imports/svg-1wmzhoy7t9';
 
@@ -17,13 +19,14 @@ export function EditHabitModal({ habit, onClose }: EditHabitModalProps) {
   const navigate = useNavigate();
   const { updateHabit, deleteHabit } = useHabits();
   const { settings, updateLanguage } = useSettings();
-  const isEnglish = settings.language === 'en';
+  const isEnglish = false;
   const themeColor = COLOR_MAP[settings.themeColor];
 
   const [formData, setFormData] = useState({
     name: habit.name,
     dailyUsage: habit.dailyUsage || '',
     costPerUnit: habit.costPerUnit || '',
+    icon: habit.icon,
     notificationEnabled: habit.notificationEnabled,
   });
 
@@ -88,6 +91,7 @@ export function EditHabitModal({ habit, onClose }: EditHabitModalProps) {
       name: formData.name,
       dailyUsage: formData.dailyUsage || undefined,
       costPerUnit: formData.costPerUnit || undefined,
+      icon: formData.icon,
       notificationEnabled: formData.notificationEnabled,
     });
 
@@ -117,7 +121,7 @@ export function EditHabitModal({ habit, onClose }: EditHabitModalProps) {
       <div className="fixed inset-0 z-20 flex justify-center pointer-events-none">
         <div
           ref={modalPanelRef}
-          className={`pointer-events-auto w-full max-w-[375px] fixed top-[78px] bottom-0 overflow-y-auto rounded-tl-[20px] rounded-tr-[20px] ${isDragging ? 'transition-none' : 'transition-transform duration-300 ease-out'} ${isVisible ? 'translate-y-0' : 'translate-y-full'
+          className={`pointer-events-auto w-full max-w-[560px] fixed top-[78px] bottom-0 overflow-y-auto rounded-tl-[20px] rounded-tr-[20px] ${isDragging ? 'transition-none' : 'transition-transform duration-300 ease-out'} ${isVisible ? 'translate-y-0' : 'translate-y-full'
             }`}
           style={{
             backgroundColor: themeColor,
@@ -132,7 +136,7 @@ export function EditHabitModal({ habit, onClose }: EditHabitModalProps) {
             onTouchCancel={handleDragEnd}
           />
           {/* Header */}
-          <div className="absolute flex items-start justify-between left-[30px] top-[43px] w-[315px]">
+          <div className="absolute flex items-start justify-between left-[30px] right-[30px] top-[43px] w-auto">
             <div className="flex flex-col gap-[6px] items-start justify-center">
               <p className={`text-[26px] text-white tracking-[1.144px] leading-[20px] ${isEnglish
                 ? "font-['Lato:Bold',sans-serif]"
@@ -160,7 +164,7 @@ export function EditHabitModal({ habit, onClose }: EditHabitModalProps) {
           </div>
 
           {/* Form Fields */}
-          <div className="absolute flex flex-col gap-[48px] items-start left-[30px] top-[123px] w-[315px]">
+          <div className="absolute flex flex-col gap-[48px] items-start left-[30px] right-[30px] top-[123px] w-auto">
             <div className="flex flex-col gap-[16px] items-start w-full">
               {/* 習慣名 */}
               <div className="bg-white relative rounded-[12px] shrink-0 w-full">
@@ -185,7 +189,8 @@ export function EditHabitModal({ habit, onClose }: EditHabitModalProps) {
                         type="text"
                         value={formData.name}
                         onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                        className="flex items-center p-[12px] w-full h-full rounded-[8px] border border-[#e0dede] bg-white text-[#454545] text-[14px] tracking-[0.014px] font-['Hiragino_Kaku_Gothic_Pro:W3',sans-serif] outline-none"
+                        maxLength={10}
+                        className="flex items-center p-[12px] w-full h-full rounded-[8px] border border-[#e0dede] bg-white text-[#454545] text-[16px] tracking-[0.014px] font-['Hiragino_Kaku_Gothic_Pro:W3',sans-serif] outline-none"
                         onFocus={(e) => e.target.style.borderColor = themeColor}
                         onBlur={(e) => e.target.style.borderColor = '#e0dede'}
                       />
@@ -217,7 +222,7 @@ export function EditHabitModal({ habit, onClose }: EditHabitModalProps) {
                         type="text"
                         value={formData.dailyUsage}
                         onChange={(e) => setFormData({ ...formData, dailyUsage: e.target.value })}
-                        className="flex items-center p-[12px] w-full h-full rounded-[8px] border border-[#e0dede] bg-white text-[#454545] text-[14px] tracking-[0.014px] font-['Hiragino_Kaku_Gothic_Pro:W3',sans-serif] outline-none"
+                        className="flex items-center p-[12px] w-full h-full rounded-[8px] border border-[#e0dede] bg-white text-[#454545] text-[16px] tracking-[0.014px] font-['Hiragino_Kaku_Gothic_Pro:W3',sans-serif] outline-none"
                         placeholder={isEnglish ? '2 hours' : '2時間'}
                         onFocus={(e) => e.target.style.borderColor = themeColor}
                         onBlur={(e) => e.target.style.borderColor = '#e0dede'}
@@ -250,7 +255,7 @@ export function EditHabitModal({ habit, onClose }: EditHabitModalProps) {
                         type="text"
                         value={formData.costPerUnit}
                         onChange={(e) => setFormData({ ...formData, costPerUnit: e.target.value })}
-                        className="flex items-center p-[12px] w-full h-full rounded-[8px] border border-[#e0dede] bg-white text-[#454545] text-[14px] tracking-[0.014px] font-['Hiragino_Kaku_Gothic_Pro:W3',sans-serif] outline-none"
+                        className="flex items-center p-[12px] w-full h-full rounded-[8px] border border-[#e0dede] bg-white text-[#454545] text-[16px] tracking-[0.014px] font-['Hiragino_Kaku_Gothic_Pro:W3',sans-serif] outline-none"
                         placeholder={isEnglish ? '500 yen' : '500円'}
                         onFocus={(e) => e.target.style.borderColor = themeColor}
                         onBlur={(e) => e.target.style.borderColor = '#e0dede'}
@@ -289,6 +294,36 @@ export function EditHabitModal({ habit, onClose }: EditHabitModalProps) {
                   </div>
                 </div>
               </div>
+
+              {/* アイコン */}
+              <div className="bg-white relative rounded-[12px] shrink-0 w-full">
+                <div className="flex flex-col gap-[14px] items-start p-[20px] w-full">
+                  <p className={`leading-[20px] text-[#454545] text-[14px] tracking-[0.616px] whitespace-nowrap ${isEnglish
+                    ? "font-['Lato:Medium',sans-serif]"
+                    : "font-['Nunito_Sans_7pt_SemiExpanded:Medium','Noto_Sans_JP:Medium',sans-serif]"
+                    }`}>
+                    アイコン
+                  </p>
+
+                  <div className="grid grid-cols-3 gap-[8px] w-full">
+                    {HABIT_ICON_OPTIONS.map((option) => (
+                      <button
+                        key={option.value}
+                        type="button"
+                        onClick={() => setFormData({ ...formData, icon: option.value })}
+                        className={`rounded-[12px] border px-[8px] py-[8px] flex flex-col items-center gap-[6px] transition-colors ${formData.icon === option.value ? 'border-current' : 'border-[#e6e6e6]'
+                          }`}
+                        style={{ color: formData.icon === option.value ? themeColor : undefined }}
+                      >
+                        <HabitIcon icon={option.value} color={settings.themeColor} className="size-[44px]" />
+                        <p className="text-[11px] leading-[14px] text-[#454545] tracking-[0.2px] font-['Nunito_Sans_7pt_SemiExpanded:Medium','Noto_Sans_JP:Medium',sans-serif] text-center">
+                          {option.labelJa}
+                        </p>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
             </div>
 
             {/* Action Buttons */}
@@ -311,7 +346,7 @@ export function EditHabitModal({ habit, onClose }: EditHabitModalProps) {
 
               <button
                 onClick={() => setShowDeleteConfirm(true)}
-                className="bg-white h-[52px] relative rounded-[100px] shrink-0 w-full"
+                className="bg-white h-[52px] mb-[10px] relative rounded-[100px] shrink-0 w-full"
               >
                 <div className="flex flex-row items-center justify-center size-full">
                   <div className="flex gap-[6px] items-center justify-center px-[24px] py-[16px] size-full">

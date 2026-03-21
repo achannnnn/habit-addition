@@ -8,9 +8,10 @@ interface FormFieldProps {
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
+  maxLength?: number;
 }
 
-export function FormField({ label, required = false, type = 'text', value, onChange, placeholder }: FormFieldProps) {
+export function FormField({ label, required = false, type = 'text', value, onChange, placeholder, maxLength }: FormFieldProps) {
   const { settings } = useSettings();
   const themeColor = COLOR_MAP[settings.themeColor];
 
@@ -30,7 +31,8 @@ export function FormField({ label, required = false, type = 'text', value, onCha
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
-          className="w-full h-full px-[12px] rounded-[8px] border border-[#e0dede] font-['Hiragino_Kaku_Gothic_Pro:W3',sans-serif] text-[14px] text-[#454545] placeholder:text-[#9d9d9d] focus:outline-none"
+          maxLength={maxLength}
+          className="w-full h-full px-[12px] rounded-[8px] border border-[#e0dede] font-['Hiragino_Kaku_Gothic_Pro:W3',sans-serif] text-[16px] text-[#454545] placeholder:text-[#9d9d9d] focus:outline-none"
           style={{
             '--focus-border-color': themeColor,
           } as React.CSSProperties}

@@ -1,5 +1,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import type { Habit } from '../types/habit';
+import type { ThemeColor } from '../types/settings';
+import { isHabitIcon } from '../constants/habitIcons';
 import {
   scheduleHabitNotifications,
   cancelHabitNotifications,
@@ -26,6 +28,8 @@ function loadHabitsFromStorage(): Habit[] {
     const parsed = JSON.parse(stored) as Array<Record<string, unknown>>;
     return parsed.map((h) => ({
       ...h,
+      icon: isHabitIcon(h.icon) ? h.icon : 'game',
+      color: (h.color as ThemeColor) ?? 'orange',
       createdAt: new Date(h.createdAt as string),
       lastResetDate: new Date(h.lastResetDate as string),
     })) as Habit[];
