@@ -62,11 +62,11 @@ export function Settings() {
 
   return (
     <div
-      className="min-h-screen w-full max-w-[375px] mx-auto relative overflow-hidden"
+      className="min-h-screen w-full max-w-[560px] mx-auto relative overflow-hidden"
       style={{ backgroundColor: COLOR_MAP[settings.themeColor] }}
     >
       {/* ヘッダー */}
-      <div className="absolute h-[172px] left-0 overflow-clip top-0 w-[375px]">
+      <div className="absolute h-[172px] left-0 overflow-clip top-0 w-full">
         <StatusBar />
 
         {/* Dynamic Island */}
@@ -76,7 +76,7 @@ export function Settings() {
 
 
         {/* タイトルと閉じるボタン */}
-        <div className="-translate-x-1/2 absolute flex items-start justify-between left-1/2 top-[91px] w-[315px]">
+        <div className="-translate-x-1/2 absolute flex items-start justify-between left-1/2 top-[91px] w-[calc(100%-60px)]">
           <div className="flex flex-col font-['Nunito_Sans_7pt_SemiExpanded:Bold','Noto_Sans_JP:Bold',sans-serif] items-start justify-center leading-[20px]">
             <p className="text-[26px] text-white tracking-[1.144px]">設定</p>
           </div>
@@ -85,7 +85,7 @@ export function Settings() {
       </div>
 
       {/* メインコンテンツ */}
-      <div className="absolute flex flex-col items-start left-[30px] top-[201px] w-[315px]">
+      <div className="absolute flex flex-col items-start left-[30px] right-[30px] top-[201px] w-auto">
         <div className="flex flex-col gap-[16px] items-start w-full">
           {/* 単位の言語設定 */}
           <div className="bg-white rounded-[12px] w-full">

@@ -4,29 +4,35 @@ import { MobileHeader } from '../components/MobileHeader';
 import { MobileFooter } from '../components/MobileFooter';
 import { FormField } from '../components/FormField';
 import { ToggleSwitch } from '../components/ToggleSwitch';
+import { HabitIcon } from '../components/HabitIcon';
 import { useHabits } from '../contexts/HabitsContext';
 import { useSettings } from '../contexts/SettingsContext';
 import { COLOR_MAP } from '../types/settings';
 import type { HabitFormData } from '../types/habit';
+import { HABIT_ICON_OPTIONS } from '../constants/habitIcons';
 
 export function AddHabit() {
   const navigate = useNavigate();
   const { addHabit } = useHabits();
   const { settings } = useSettings();
-  const isEnglish = settings.language === 'en';
   const themeColor = COLOR_MAP[settings.themeColor];
 
   const [formData, setFormData] = useState<HabitFormData>({
     name: '',
     dailyUsage: '',
     costPerUnit: '',
+    icon: 'none',
     notificationEnabled: true,
   });
 
   const handleSubmit = () => {
     // 必須フィールドのバリデーション
     if (!formData.name.trim()) {
-      alert(isEnglish ? 'Please enter a habit name' : '習慣の名前を入力してください');
+      alert('習慣の名前を入力してください');
+      return;
+    }
+    if (formData.name.length > 10) {
+      alert('習慣の名前は10文字以内で入力してください');
       return;
     }
 
@@ -36,6 +42,8 @@ export function AddHabit() {
       name: formData.name,
       dailyUsage: formData.dailyUsage || undefined,
       costPerUnit: formData.costPerUnit || undefined,
+      icon: formData.icon,
+      color: settings.themeColor,
       notificationEnabled: formData.notificationEnabled,
       createdAt: now,
       lastResetDate: now,
@@ -49,7 +57,7 @@ export function AddHabit() {
 
   return (
     <div
-      className="min-h-screen w-full max-w-[375px] mx-auto relative overflow-x-hidden"
+      className="min-h-screen w-full max-w-[560px] mx-auto relative overflow-x-hidden"
       style={{ backgroundColor: COLOR_MAP[settings.themeColor] }}
     >
       {/* ヘッダー */}
@@ -65,6 +73,7 @@ export function AddHabit() {
               label="やめたい習慣の名前"
               required
               placeholder="例：ゲーム"
+              maxLength={10}
               value={formData.name}
               onChange={(value) => setFormData({ ...formData, name: value })}
             />
@@ -97,6 +106,31 @@ export function AddHabit() {
               enabled={formData.notificationEnabled}
               onChange={(enabled) => setFormData({ ...formData, notificationEnabled: enabled })}
             />
+          </div>
+
+          {/* アイコン */}
+          <div className="bg-white rounded-[12px] p-[20px] flex flex-col gap-[14px]">
+            <p className="font-['Nunito_Sans_7pt_SemiExpanded:Medium','Noto_Sans_JP:Medium',sans-serif] leading-[20px] text-[#454545] text-[14px] tracking-[0.616px]">
+              アイコン
+            </p>
+
+            <div className="grid grid-cols-3 gap-[8px]">
+              {HABIT_ICON_OPTIONS.map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => setFormData({ ...formData, icon: option.value })}
+                  className={`rounded-[12px] border px-[8px] py-[8px] flex flex-col items-center gap-[6px] transition-colors ${formData.icon === option.value ? 'border-current' : 'border-[#e6e6e6]'
+                    }`}
+                  style={{ color: formData.icon === option.value ? themeColor : undefined }}
+                >
+                  <HabitIcon icon={option.value} color={settings.themeColor} className="size-[44px]" />
+                  <p className="text-[11px] leading-[14px] text-[#454545] tracking-[0.2px] font-['Nunito_Sans_7pt_SemiExpanded:Medium','Noto_Sans_JP:Medium',sans-serif] text-center">
+                    {option.labelJa}
+                  </p>
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
