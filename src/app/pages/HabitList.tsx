@@ -25,7 +25,7 @@ export function HabitList() {
   };
 
   return (
-    <div className="bg-[#eee] min-h-screen w-full max-w-[560px] mx-auto relative overflow-hidden">
+    <div className="bg-[#eee] min-h-screen w-full max-w-[560px] mx-auto relative">
       {/* ヘッダー */}
       <div className="absolute h-[172px] left-0 overflow-clip top-0 w-full">
         {/* 背景 */}
@@ -45,7 +45,7 @@ export function HabitList() {
       </div>
 
       {/* メインコンテンツ */}
-      <div className="absolute flex flex-col gap-[48px] items-start left-[30px] right-[30px] top-[201px] w-auto">
+      <div className="flex flex-col gap-[48px] items-start px-[30px] pt-[201px] pb-[64px] w-full">
         {/* 習慣リスト */}
         <div className="flex flex-col gap-[16px] items-start w-full">
           {habits.map((habit) => (
