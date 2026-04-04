@@ -4,8 +4,19 @@ import { useHabits } from '../contexts/HabitsContext';
 import { useSettings } from '../contexts/SettingsContext';
 import { MobileFooter } from '../components/MobileFooter';
 import { EditHabitModal } from '../components/EditHabitModal';
+import { Calendar } from '../components/ui/calendar';
 import { calculateElapsedTime } from '../utils/timeCalculator';
 import { COLOR_MAP } from '../types/settings';
+import { getHabitMilestones } from '../constants/milestones';
+import { ja } from 'date-fns/locale';
+import {
+  formatSavedCount,
+  getAllTimeSavedCount,
+  getAllTimeSavedMoney,
+  getHabitSavingsStats,
+  getMilestoneProgress,
+  getNextMilestone,
+} from '../utils/habitStats';
 import svgPaths from '../../imports/svg-ljemd4bgmx';
 
 export function HabitDetail() {
@@ -15,6 +26,7 @@ export function HabitDetail() {
   const { settings } = useSettings();
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
+  const [selectedAchievementDate, setSelectedAchievementDate] = useState<Date | undefined>(undefined);
 
   const habit = getHabit(id || '');
   const isEnglish = settings.language === 'en';
@@ -39,45 +51,6 @@ export function HabitDetail() {
 
     return () => clearInterval(interval);
   }, [habit?.lastResetDate]);
-
-  // やめられた量を計算
-  const preciseSavedCount = useMemo(() => {
-    if (!habit?.dailyUsage) return 0;
-
-    const match = habit.dailyUsage.match(/(\d+)/);
-    if (!match) return 0;
-
-    const dailyCount = parseInt(match[1]);
-    const elapsedDays = elapsedTime.days + elapsedTime.hours / 24 + elapsedTime.minutes / (24 * 60);
-
-    return elapsedDays * dailyCount;
-  }, [habit, elapsedTime]);
-
-  const savedCount = useMemo(() => {
-    if (preciseSavedCount === 0) return '0';
-
-    const rounded = Math.round(preciseSavedCount * 10) / 10;
-    return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
-  }, [preciseSavedCount]);
-
-  // 節約できた金額を計算
-  const savedMoney = useMemo(() => {
-    if (!habit?.costPerUnit) return 0;
-
-    const match = habit.costPerUnit.match(/(\d+)/);
-    if (!match) return 0;
-
-    const costPerUnit = parseInt(match[1]);
-    return Math.floor(preciseSavedCount * costPerUnit);
-  }, [habit, preciseSavedCount]);
-
-  // 単位を抽出
-  const countUnit = useMemo(() => {
-    if (!habit?.dailyUsage) return '';
-
-    const match = habit.dailyUsage.match(/[^\d\s]+/);
-    return match ? match[0] : '';
-  }, [habit]);
 
   if (!habit) {
     return (
@@ -114,6 +87,35 @@ export function HabitDetail() {
     setIsResetConfirmOpen(false);
   };
 
+  const currentSavingsStats = useMemo(() => getHabitSavingsStats(habit), [habit, elapsedTime]);
+  const allTimeSavedCount = useMemo(() => getAllTimeSavedCount(habit), [habit, elapsedTime]);
+  const allTimeSavedMoney = useMemo(() => getAllTimeSavedMoney(habit), [habit, elapsedTime]);
+  const milestoneDays = useMemo(() => getHabitMilestones(habit), [habit]);
+  const currentStreakDays = elapsedTime.days;
+  const nextMilestone = getNextMilestone(currentStreakDays, milestoneDays);
+  const milestoneProgress = getMilestoneProgress(currentStreakDays, milestoneDays);
+  const currentMilestone = [...milestoneDays].reverse().find((days) => days <= currentStreakDays) ?? 0;
+  const achievementHistory = [...habit.achievementHistory].sort((left, right) => right.reachedAt.getTime() - left.reachedAt.getTime());
+  const restartLogs = [...habit.restartLogs].sort((left, right) => right.restartedAt.getTime() - left.restartedAt.getTime());
+  const achievementDates = useMemo(
+    () => achievementHistory.map((entry) => entry.reachedAt),
+    [achievementHistory],
+  );
+  const achievementDateMap = useMemo(() => {
+    return achievementHistory.reduce<Record<string, typeof achievementHistory>>((accumulator, entry) => {
+      const dateKey = `${entry.reachedAt.getFullYear()}-${entry.reachedAt.getMonth()}-${entry.reachedAt.getDate()}`;
+      if (!accumulator[dateKey]) {
+        accumulator[dateKey] = [];
+      }
+      accumulator[dateKey].push(entry);
+      return accumulator;
+    }, {});
+  }, [achievementHistory]);
+  const selectedDateKey = selectedAchievementDate
+    ? `${selectedAchievementDate.getFullYear()}-${selectedAchievementDate.getMonth()}-${selectedAchievementDate.getDate()}`
+    : undefined;
+  const selectedDateAchievements = selectedDateKey ? achievementDateMap[selectedDateKey] ?? [] : [];
+
   // 開始日時のフォーマット
   const formatStartDate = (date: Date) => {
     const year = date.getFullYear();
@@ -125,11 +127,35 @@ export function HabitDetail() {
     return `開始日時：${year}年${month}月${day}日${hours}時${minutes}分`;
   };
 
-  return (
-    <div className="bg-[#eee] min-h-screen w-full max-w-[560px] mx-auto relative overflow-hidden">
-      {/* Footer */}
-      <div className="absolute bottom-0 h-[34px] left-0 w-full" />
+  const formatShortDateTime = (date: Date) => {
+    const year = date.getFullYear();
+    const month = date.getMonth() + 1;
+    const day = date.getDate();
+    const hours = `${date.getHours()}`.padStart(2, '0');
+    const minutes = `${date.getMinutes()}`.padStart(2, '0');
 
+    return `${year}/${month}/${day} ${hours}:${minutes}`;
+  };
+
+  const formatShortDate = (date: Date) => {
+    const year = date.getFullYear();
+    const month = date.getMonth() + 1;
+    const day = date.getDate();
+
+    return `${year}年${month}月${day}日`;
+  };
+
+  useEffect(() => {
+    if (achievementHistory.length === 0) {
+      setSelectedAchievementDate(undefined);
+      return;
+    }
+
+    setSelectedAchievementDate((currentSelectedDate) => currentSelectedDate ?? achievementHistory[0].reachedAt);
+  }, [achievementHistory]);
+
+  return (
+    <div className="bg-[#eee] min-h-screen w-full max-w-[560px] mx-auto relative">
       {/* Header */}
       <div className="absolute h-[172px] left-0 overflow-clip top-0 w-full">
         <div className="absolute h-[172px] left-0 rounded-bl-[40px] rounded-br-[40px] top-0 w-full" style={{ backgroundColor: themeColor }} />
@@ -175,7 +201,7 @@ export function HabitDetail() {
       </div>
 
       {/* Main Content */}
-      <div className="fixed content-stretch flex flex-col gap-[48px] items-start left-1/2 -translate-x-1/2 top-[201px] w-[calc(100%-60px)] max-w-[500px]">
+      <div className="flex flex-col gap-[48px] px-[30px] pt-[201px] pb-[64px] w-full">
         <div className="content-stretch flex flex-col gap-[16px] items-start relative shrink-0 w-full">
           {/* やめた時間 */}
           <div className="bg-white relative rounded-[12px] shrink-0 w-full">
@@ -262,14 +288,14 @@ export function HabitDetail() {
                     <div className="content-stretch flex gap-[4px] items-center relative shrink-0">
                       <div className="content-stretch flex gap-[2px] items-end relative shrink-0">
                         <p className="font-['Lato:Medium',sans-serif] leading-none text-[26px] tracking-[0.52px] whitespace-nowrap" style={{ color: themeColor }}>
-                          {savedCount}
+                          {currentSavingsStats.displaySavedCount}
                         </p>
                         <div className="content-stretch flex flex-col items-center justify-center relative shrink-0 w-[16px]">
                           <p className={`leading-[20px] text-[#454545] text-[16px] tracking-[0.704px] whitespace-nowrap w-full ${isEnglish
                             ? "font-['Lato:Medium',sans-serif]"
                             : "font-['Nunito_Sans_7pt_SemiExpanded:Medium','Noto_Sans_JP:Medium',sans-serif]"
                             }`}>
-                            {countUnit}
+                              {currentSavingsStats.countUnit}
                           </p>
                         </div>
                       </div>
@@ -300,7 +326,7 @@ export function HabitDetail() {
                     <div className="content-stretch flex gap-[4px] items-center relative shrink-0">
                       <div className="content-stretch flex gap-[2px] items-end relative shrink-0">
                         <p className="font-['Lato:Medium',sans-serif] leading-none text-[26px] tracking-[0.52px] whitespace-nowrap" style={{ color: themeColor }}>
-                          {savedMoney}
+                          {currentSavingsStats.savedMoney}
                         </p>
                         <div className="content-stretch flex flex-col items-center justify-center relative shrink-0 w-[16px]">
                           <p className={`leading-[20px] text-[#454545] text-[16px] tracking-[0.704px] w-full ${isEnglish
@@ -325,6 +351,198 @@ export function HabitDetail() {
             }`}>
             {formatStartDate(habit.createdAt)}
           </p>
+
+          <div className="bg-white relative rounded-[12px] shrink-0 w-full p-[20px]">
+            <div className="flex items-center justify-between gap-[12px]">
+              <div>
+                <p className="font-['Nunito_Sans_7pt_SemiExpanded:Bold','Noto_Sans_JP:Bold',sans-serif] text-[#454545] text-[16px] leading-[20px] tracking-[0.4px]">
+                  節約の見える化
+                </p>
+                <p className="mt-[4px] text-[#8b95a7] text-[12px] leading-[18px] font-['Nunito_Sans_7pt_SemiExpanded:Medium','Noto_Sans_JP:Medium',sans-serif]">
+                  今回と累計の成果をまとめています
+                </p>
+              </div>
+              <div className="min-w-[112px] rounded-[16px] px-[12px] py-[8px] text-white text-[12px] font-['Nunito_Sans_7pt_SemiExpanded:Bold','Noto_Sans_JP:Bold',sans-serif] text-center leading-[1.2]" style={{ backgroundColor: themeColor }}>
+                <p className="whitespace-nowrap">マイルストーン</p>
+                <p className="mt-[2px] whitespace-nowrap">達成{habit.achievementHistory.length}件</p>
+              </div>
+            </div>
+
+            <div className="mt-[18px] grid grid-cols-2 gap-[12px]">
+              <div className="rounded-[12px] bg-[#f8f8f8] px-[14px] py-[14px]">
+                <p className="text-[#8b95a7] text-[12px] leading-[16px]">今回やめられた量</p>
+                <p className="mt-[6px] text-[#454545] text-[20px] leading-[24px] font-['Lato:Bold',sans-serif]">
+                  {currentSavingsStats.displaySavedCount}
+                  <span className="ml-[4px] text-[14px]">{currentSavingsStats.countUnit}</span>
+                </p>
+              </div>
+              <div className="rounded-[12px] bg-[#f8f8f8] px-[14px] py-[14px]">
+                <p className="text-[#8b95a7] text-[12px] leading-[16px]">今回の節約金額</p>
+                <p className="mt-[6px] text-[#454545] text-[20px] leading-[24px] font-['Lato:Bold',sans-serif]">
+                  {currentSavingsStats.savedMoney}
+                  <span className="ml-[4px] text-[14px]">円</span>
+                </p>
+              </div>
+              <div className="rounded-[12px] bg-[#f8f8f8] px-[14px] py-[14px]">
+                <p className="text-[#8b95a7] text-[12px] leading-[16px]">累計やめられた量</p>
+                <p className="mt-[6px] text-[#454545] text-[20px] leading-[24px] font-['Lato:Bold',sans-serif]">
+                  {formatSavedCount(allTimeSavedCount)}
+                  <span className="ml-[4px] text-[14px]">{currentSavingsStats.countUnit}</span>
+                </p>
+              </div>
+              <div className="rounded-[12px] bg-[#f8f8f8] px-[14px] py-[14px]">
+                <p className="text-[#8b95a7] text-[12px] leading-[16px]">累計の節約金額</p>
+                <p className="mt-[6px] text-[#454545] text-[20px] leading-[24px] font-['Lato:Bold',sans-serif]">
+                  {allTimeSavedMoney}
+                  <span className="ml-[4px] text-[14px]">円</span>
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-[18px] rounded-[12px] bg-[#f8f8f8] px-[14px] py-[14px]">
+              <p className="text-[#8b95a7] text-[12px] leading-[18px]">
+                設定中: {milestoneDays.join(' / ')}日
+              </p>
+              <div className="flex items-center justify-between gap-[12px]">
+                <p className="text-[#454545] text-[14px] leading-[18px] font-['Nunito_Sans_7pt_SemiExpanded:Bold','Noto_Sans_JP:Bold',sans-serif]">
+                  次のマイルストーンまで
+                </p>
+                <p className="text-[12px] leading-[16px] text-[#8b95a7]">
+                  {nextMilestone ? `${currentStreakDays}日 / ${nextMilestone}日` : '最終到達済み'}
+                </p>
+              </div>
+              <div className="mt-[10px] h-[10px] w-full rounded-full bg-white overflow-hidden">
+                <div className="h-full rounded-full transition-[width] duration-300" style={{ width: `${milestoneProgress * 100}%`, backgroundColor: themeColor }} />
+              </div>
+              <p className="mt-[10px] text-[#8b95a7] text-[12px] leading-[18px]">
+                {nextMilestone
+                  ? `直近の達成は${currentMilestone}日、次は${nextMilestone}日です。`
+                  : '365日を達成済みです。ここからは記録を伸ばすだけです。'}
+              </p>
+            </div>
+          </div>
+
+          <div className="bg-white relative rounded-[12px] shrink-0 w-full p-[20px]">
+            <div className="flex items-start justify-between gap-[12px]">
+              <div>
+                <p className="font-['Nunito_Sans_7pt_SemiExpanded:Bold','Noto_Sans_JP:Bold',sans-serif] text-[#454545] text-[16px] leading-[20px] tracking-[0.4px]">
+                  達成履歴
+                </p>
+                <p className="mt-[4px] text-[#8b95a7] text-[12px] leading-[18px] font-['Nunito_Sans_7pt_SemiExpanded:Medium','Noto_Sans_JP:Medium',sans-serif]">
+                  マイルストーンを達成した日をカレンダーで確認できます
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-[16px] rounded-[16px] bg-[#f8f8f8] p-[8px]">
+              <Calendar
+                mode="single"
+                locale={ja}
+                selected={selectedAchievementDate}
+                onSelect={setSelectedAchievementDate}
+                defaultMonth={achievementHistory[0]?.reachedAt ?? new Date()}
+                modifiers={{ achievement: achievementDates }}
+                modifiersStyles={{
+                  achievement: {
+                    backgroundColor: `${themeColor}20`,
+                    color: themeColor,
+                    borderRadius: '9999px',
+                    fontWeight: '700',
+                  },
+                }}
+                className="w-full"
+                classNames={{
+                  months: 'w-full',
+                  month: 'w-full',
+                  table: 'w-full',
+                  head_cell: 'text-[#8b95a7] rounded-md flex-1 font-normal text-[0.75rem]',
+                  row: 'flex w-full mt-2',
+                  cell: 'relative p-0 text-center text-sm flex-1',
+                  day: 'mx-auto flex size-9 items-center justify-center rounded-full p-0 text-[13px] font-medium text-[#454545] hover:bg-white',
+                  day_selected: 'text-white hover:text-white',
+                  day_today: 'bg-white text-[#454545]',
+                  nav_button: 'size-7 bg-white p-0 opacity-100 border border-[#ececec] rounded-full',
+                  caption_label: 'text-[14px] text-[#454545] font-semibold',
+                }}
+              />
+            </div>
+
+            {achievementHistory.length > 0 ? (
+              <div className="mt-[16px] rounded-[12px] bg-[#f8f8f8] px-[14px] py-[14px]">
+                <div className="flex items-center justify-between gap-[12px]">
+                  <p className="text-[#454545] text-[14px] leading-[18px] font-['Nunito_Sans_7pt_SemiExpanded:Bold','Noto_Sans_JP:Bold',sans-serif]">
+                    {selectedAchievementDate ? formatShortDate(selectedAchievementDate) : '達成日を選択'}
+                  </p>
+                  <p className="text-[#8b95a7] text-[12px] leading-[16px]">
+                    {selectedDateAchievements.length}件
+                  </p>
+                </div>
+
+                {selectedDateAchievements.length > 0 ? (
+                  <div className="mt-[12px] flex flex-col gap-[8px]">
+                    {selectedDateAchievements.map((entry) => (
+                      <div key={entry.achievementKey} className="rounded-[10px] bg-white px-[12px] py-[10px] flex items-center justify-between gap-[12px]">
+                        <div>
+                          <p className="text-[#454545] text-[14px] leading-[18px] font-['Nunito_Sans_7pt_SemiExpanded:Bold','Noto_Sans_JP:Bold',sans-serif]">
+                            {entry.days}日達成
+                          </p>
+                          <p className="mt-[2px] text-[#8b95a7] text-[12px] leading-[16px]">
+                            {formatShortDateTime(entry.reachedAt)}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="mt-[12px] text-[#8b95a7] text-[13px] leading-[20px]">
+                    この日にはマイルストーン達成の記録がありません。
+                  </p>
+                )}
+              </div>
+            ) : (
+              <p className="mt-[16px] text-[#8b95a7] text-[13px] leading-[20px]">
+                まだ達成履歴はありません。最初の1日達成からカレンダーに記録されます。
+              </p>
+            )}
+          </div>
+
+          <div className="bg-white relative rounded-[12px] shrink-0 w-full p-[20px]">
+            <div className="flex items-center justify-between gap-[12px]">
+              <p className="font-['Nunito_Sans_7pt_SemiExpanded:Bold','Noto_Sans_JP:Bold',sans-serif] text-[#454545] text-[16px] leading-[20px] tracking-[0.4px]">
+                再開ログ
+              </p>
+              <p className="text-[#8b95a7] text-[12px] leading-[16px]">
+                {restartLogs.length}件
+              </p>
+            </div>
+
+            {restartLogs.length > 0 ? (
+              <div className="mt-[16px] flex flex-col gap-[10px]">
+                {restartLogs.map((entry) => (
+                  <div key={entry.id} className="rounded-[12px] bg-[#f8f8f8] px-[14px] py-[12px]">
+                    <div className="flex items-start justify-between gap-[12px]">
+                      <div>
+                        <p className="text-[#454545] text-[15px] leading-[20px] font-['Nunito_Sans_7pt_SemiExpanded:Bold','Noto_Sans_JP:Bold',sans-serif]">
+                          {entry.streakDays}日で再開
+                        </p>
+                        <p className="mt-[2px] text-[#8b95a7] text-[12px] leading-[16px]">
+                          {formatShortDateTime(entry.restartedAt)}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="mt-[10px] flex flex-wrap gap-[8px] text-[12px] leading-[16px] text-[#6b6b6b]">
+                      <span className="rounded-full bg-white px-[10px] py-[6px]">やめられた量 {formatSavedCount(entry.savedCount)}{currentSavingsStats.countUnit}</span>
+                      <span className="rounded-full bg-white px-[10px] py-[6px]">節約金額 {entry.savedMoney}円</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="mt-[16px] text-[#8b95a7] text-[13px] leading-[20px]">
+                まだ再開ログはありません。リセットしたタイミングでここに記録されます。
+              </p>
+            )}
+          </div>
         </div>
 
         {/* リセットボタン */}
@@ -345,6 +563,8 @@ export function HabitDetail() {
           </div>
         </button>
       </div>
+
+      <MobileFooter />
 
       {/* Edit Modal */}
       {isEditModalOpen && (

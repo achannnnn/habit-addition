@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router';
 import { MobileHeader } from '../components/MobileHeader';
 import { MobileFooter } from '../components/MobileFooter';
 import { FormField } from '../components/FormField';
+import { MilestoneSelector } from '../components/MilestoneSelector';
 import { ToggleSwitch } from '../components/ToggleSwitch';
 import { HabitIcon } from '../components/HabitIcon';
 import { useHabits } from '../contexts/HabitsContext';
@@ -10,6 +11,7 @@ import { useSettings } from '../contexts/SettingsContext';
 import { COLOR_MAP } from '../types/settings';
 import type { HabitFormData } from '../types/habit';
 import { HABIT_ICON_OPTIONS } from '../constants/habitIcons';
+import { DEFAULT_SELECTED_MILESTONES } from '../constants/milestones';
 
 export function AddHabit() {
   const navigate = useNavigate();
@@ -21,6 +23,7 @@ export function AddHabit() {
     name: '',
     dailyUsage: '',
     costPerUnit: '',
+    milestoneDays: [...DEFAULT_SELECTED_MILESTONES],
     icon: 'none',
     notificationEnabled: true,
   });
@@ -42,6 +45,7 @@ export function AddHabit() {
       name: formData.name,
       dailyUsage: formData.dailyUsage || undefined,
       costPerUnit: formData.costPerUnit || undefined,
+      milestoneDays: formData.milestoneDays,
       icon: formData.icon,
       color: settings.themeColor,
       notificationEnabled: formData.notificationEnabled,
@@ -49,6 +53,8 @@ export function AddHabit() {
       lastResetDate: now,
       totalDays: 0,
       currentStreak: 0,
+      achievementHistory: [],
+      restartLogs: [],
     });
 
     // 習慣一覧画面に遷移
@@ -105,6 +111,13 @@ export function AddHabit() {
               label="通知"
               enabled={formData.notificationEnabled}
               onChange={(enabled) => setFormData({ ...formData, notificationEnabled: enabled })}
+            />
+          </div>
+
+          <div className="bg-white rounded-[12px] p-[20px]">
+            <MilestoneSelector
+              value={formData.milestoneDays}
+              onChange={(milestoneDays) => setFormData({ ...formData, milestoneDays })}
             />
           </div>
 

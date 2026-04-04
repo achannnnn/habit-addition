@@ -1,60 +1,6 @@
 import { LocalNotifications } from '@capacitor/local-notifications';
 import type { Habit } from '../types/habit';
-
-// マイルストーン（日数）
-const MILESTONES = [1, 7, 14, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330, 360, 365] as const;
-
-// マイルストーンごとのメッセージ
-const MILESTONE_MESSAGES: Record<string, string[]> = {
-  '1': [
-    '🎉 1日達成！いいスタートです。',
-    '🌱 まだ1日。でも確実な一歩です。',
-    '👏 今日もやらずに過ごせました。ナイス！',
-    '🔥 ストリーク1日目。ここからです。',
-  ],
-  '7': [
-    '🎉 1週間達成！いい流れです。',
-    '💪 7日継続。もう立派な記録です。',
-    '🌱 1週間やらずに過ごしました。続いています。',
-    '🔥 7日ストリーク。ここから強くなります。',
-  ],
-  '14': [
-    '🎉 2週間達成！変化を感じ始める頃です。',
-    '💪 14日継続。かなり強いストリークです。',
-    '🌱 2週間やめています。素晴らしいです。',
-    '🔥 14日。ここまで来た人は少ないです。',
-  ],
-  '30': [
-    '🏆 1ヶ月達成！本当にすごいです。',
-    '🎉 30日ストリーク！これは大きな記録です。',
-    '🌱 1ヶ月やめ続けました。自信にしていい記録です。',
-    '🔥 30日。新しい習慣ができています。',
-  ],
-  '365': [
-    '🏆 365日達成。本当にすごいです。',
-    '🎉 1年間継続しました。誇れる記録です。',
-    '🔥 365日ストリーク。あなたは変わりました。',
-    '🌱 1年やめ続けました。素晴らしいです。',
-  ],
-};
-
-// 毎月メッセージ（30の倍数で365以外）
-function getMonthlyMessages(months: number): string[] {
-  return [
-    `🎉 また${months}ヶ月達成！積み上がっています。`,
-    `🏆 ${months}ヶ月継続中。あなたは変わっています。`,
-    `🌱 ${months}ヶ月やめ続けています。誇れる記録です。`,
-    `🔥 ストリーク更新中。ここまで来ました。`,
-  ];
-}
-
-function getMessages(days: number): string[] {
-  if (MILESTONE_MESSAGES[String(days)]) {
-    return MILESTONE_MESSAGES[String(days)];
-  }
-  const months = Math.round(days / 30);
-  return getMonthlyMessages(months);
-}
+import { getHabitMilestones, getMilestoneMessages } from '../constants/milestones';
 
 function pickRandom<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
@@ -62,14 +8,14 @@ function pickRandom<T>(arr: T[]): T {
 
 /**
  * habitId から Capacitor 通知用の整数 ID を生成
- * milestoneIndex: 0〜(MILESTONES.length-1)
+ * milestoneDay: マイルストーン日数
  */
-function getNotificationId(habitId: string, milestoneIndex: number): number {
+function getNotificationId(habitId: string, milestoneDay: number): number {
   let hash = 0;
   for (let i = 0; i < habitId.length; i++) {
     hash = (hash * 31 + habitId.charCodeAt(i)) % 999983; // 大きめ素数でmod
   }
-  return hash * 100 + milestoneIndex;
+  return hash * 10000 + milestoneDay;
 }
 
 /** 通知権限をリクエスト */
@@ -88,10 +34,10 @@ export async function scheduleHabitNotifications(habit: Habit): Promise<void> {
   try {
     const now = new Date();
     const startDate = new Date(habit.lastResetDate);
+    const milestoneDays = getHabitMilestones(habit);
     const notifications: Parameters<typeof LocalNotifications.schedule>[0]['notifications'] = [];
 
-    for (let i = 0; i < MILESTONES.length; i++) {
-      const days = MILESTONES[i];
+    for (const days of milestoneDays) {
       const notifDate = new Date(startDate);
       notifDate.setDate(notifDate.getDate() + days);
       notifDate.setHours(20, 0, 0, 0); // 毎日20時に通知
@@ -100,9 +46,9 @@ export async function scheduleHabitNotifications(habit: Habit): Promise<void> {
       if (notifDate <= now) continue;
 
       notifications.push({
-        id: getNotificationId(habit.id, i),
+        id: getNotificationId(habit.id, days),
         title: habit.name,
-        body: pickRandom(getMessages(days)),
+        body: pickRandom(getMilestoneMessages(days)),
         schedule: { at: notifDate },
         extra: { habitId: habit.id, days },
       });
@@ -117,11 +63,13 @@ export async function scheduleHabitNotifications(habit: Habit): Promise<void> {
 }
 
 /** 習慣のスケジュール済み通知をキャンセル */
-export async function cancelHabitNotifications(habitId: string): Promise<void> {
+export async function cancelHabitNotifications(habit: Pick<Habit, 'id' | 'milestoneDays'>): Promise<void> {
   try {
-    const notifications = MILESTONES.map((_, i) => ({
-      id: getNotificationId(habitId, i),
+    const notifications = getHabitMilestones(habit).map((days) => ({
+      id: getNotificationId(habit.id, days),
     }));
+
+    if (notifications.length === 0) return;
     await LocalNotifications.cancel({ notifications });
   } catch {
     // 通知が存在しない場合は無視
@@ -129,7 +77,17 @@ export async function cancelHabitNotifications(habitId: string): Promise<void> {
 }
 
 /** 通知のキャンセル＋再スケジュール */
-export async function rescheduleHabitNotifications(habit: Habit): Promise<void> {
-  await cancelHabitNotifications(habit.id);
-  await scheduleHabitNotifications(habit);
+export async function rescheduleHabitNotifications(previousHabit: Habit, nextHabit: Habit): Promise<void> {
+  await cancelHabitNotifications(previousHabit);
+  if (previousHabit.id === nextHabit.id) {
+    const nextOnlyMilestones = getHabitMilestones(nextHabit).filter((days) => !getHabitMilestones(previousHabit).includes(days));
+    if (nextOnlyMilestones.length > 0) {
+      await LocalNotifications.cancel({
+        notifications: nextOnlyMilestones.map((days) => ({
+          id: getNotificationId(nextHabit.id, days),
+        })),
+      }).catch(() => undefined);
+    }
+  }
+  await scheduleHabitNotifications(nextHabit);
 }

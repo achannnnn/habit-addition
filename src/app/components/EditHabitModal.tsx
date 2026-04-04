@@ -4,6 +4,8 @@ import { useHabits } from '../contexts/HabitsContext';
 import { useSettings } from '../contexts/SettingsContext';
 import { DeleteConfirmModal } from './DeleteConfirmModal';
 import { HabitIcon } from './HabitIcon';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from './ui/accordion';
+import { MilestoneSelector } from './MilestoneSelector';
 import { COLOR_MAP } from '../types/settings';
 import { HABIT_ICON_OPTIONS } from '../constants/habitIcons';
 import type { Habit } from '../types/habit';
@@ -16,6 +18,7 @@ interface EditHabitModalProps {
 
 export function EditHabitModal({ habit, onClose }: EditHabitModalProps) {
   const ANIMATION_MS = 280;
+  const DRAG_START_ZONE_PX = 96;
   const navigate = useNavigate();
   const { updateHabit, deleteHabit } = useHabits();
   const { settings, updateLanguage } = useSettings();
@@ -26,6 +29,7 @@ export function EditHabitModal({ habit, onClose }: EditHabitModalProps) {
     name: habit.name,
     dailyUsage: habit.dailyUsage || '',
     costPerUnit: habit.costPerUnit || '',
+    milestoneDays: habit.milestoneDays,
     icon: habit.icon,
     notificationEnabled: habit.notificationEnabled,
   });
@@ -36,6 +40,7 @@ export function EditHabitModal({ habit, onClose }: EditHabitModalProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [dragStartY, setDragStartY] = useState(0);
   const [dragOffsetY, setDragOffsetY] = useState(0);
+  const [isIconAccordionOpen, setIsIconAccordionOpen] = useState(false);
   const modalPanelRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -60,7 +65,13 @@ export function EditHabitModal({ habit, onClose }: EditHabitModalProps) {
 
   const handleDragStart = (event: React.TouchEvent<HTMLDivElement>) => {
     if (showDeleteConfirm) return;
-    if (modalPanelRef.current && modalPanelRef.current.scrollTop > 0) return;
+    if (!modalPanelRef.current) return;
+    if (modalPanelRef.current.scrollTop > 0) return;
+
+    const panelTop = modalPanelRef.current.getBoundingClientRect().top;
+    const touchY = event.touches[0].clientY;
+    const startedInTopZone = touchY - panelTop <= DRAG_START_ZONE_PX;
+    if (!startedInTopZone) return;
 
     setIsDragging(true);
     setDragStartY(event.touches[0].clientY);
@@ -71,6 +82,7 @@ export function EditHabitModal({ habit, onClose }: EditHabitModalProps) {
     if (!isDragging) return;
 
     const deltaY = event.touches[0].clientY - dragStartY;
+    event.preventDefault();
     setDragOffsetY(deltaY > 0 ? deltaY : 0);
   };
 
@@ -91,6 +103,7 @@ export function EditHabitModal({ habit, onClose }: EditHabitModalProps) {
       name: formData.name,
       dailyUsage: formData.dailyUsage || undefined,
       costPerUnit: formData.costPerUnit || undefined,
+      milestoneDays: formData.milestoneDays,
       icon: formData.icon,
       notificationEnabled: formData.notificationEnabled,
     });
@@ -127,13 +140,13 @@ export function EditHabitModal({ habit, onClose }: EditHabitModalProps) {
             backgroundColor: themeColor,
             transform: isDragging ? `translateY(${dragOffsetY}px)` : undefined,
           }}
+          onTouchStart={handleDragStart}
+          onTouchMove={handleDragMove}
+          onTouchEnd={handleDragEnd}
+          onTouchCancel={handleDragEnd}
         >
           <div
             className="absolute left-1/2 -translate-x-1/2 top-[10px] z-30 h-[5px] w-[56px] rounded-full bg-white/55"
-            onTouchStart={handleDragStart}
-            onTouchMove={handleDragMove}
-            onTouchEnd={handleDragEnd}
-            onTouchCancel={handleDragEnd}
           />
           {/* Header */}
           <div className="absolute flex items-start justify-between left-[30px] right-[30px] top-[43px] w-auto">
@@ -295,34 +308,68 @@ export function EditHabitModal({ habit, onClose }: EditHabitModalProps) {
                 </div>
               </div>
 
+              <div className="bg-white relative rounded-[12px] shrink-0 w-full">
+                <div className="flex flex-col items-start p-[20px] w-full">
+                  <MilestoneSelector
+                    value={formData.milestoneDays}
+                    onChange={(milestoneDays) => setFormData({ ...formData, milestoneDays })}
+                  />
+                </div>
+              </div>
+
               {/* アイコン */}
               <div className="bg-white relative rounded-[12px] shrink-0 w-full">
-                <div className="flex flex-col gap-[14px] items-start p-[20px] w-full">
-                  <p className={`leading-[20px] text-[#454545] text-[14px] tracking-[0.616px] whitespace-nowrap ${isEnglish
-                    ? "font-['Lato:Medium',sans-serif]"
-                    : "font-['Nunito_Sans_7pt_SemiExpanded:Medium','Noto_Sans_JP:Medium',sans-serif]"
-                    }`}>
-                    アイコン
-                  </p>
-
-                  <div className="grid grid-cols-3 gap-[8px] w-full">
-                    {HABIT_ICON_OPTIONS.map((option) => (
-                      <button
-                        key={option.value}
-                        type="button"
-                        onClick={() => setFormData({ ...formData, icon: option.value })}
-                        className={`rounded-[12px] border px-[8px] py-[8px] flex flex-col items-center gap-[6px] transition-colors ${formData.icon === option.value ? 'border-current' : 'border-[#e6e6e6]'
-                          }`}
-                        style={{ color: formData.icon === option.value ? themeColor : undefined }}
-                      >
-                        <HabitIcon icon={option.value} color={settings.themeColor} className="size-[44px]" />
-                        <p className="text-[11px] leading-[14px] text-[#454545] tracking-[0.2px] font-['Nunito_Sans_7pt_SemiExpanded:Medium','Noto_Sans_JP:Medium',sans-serif] text-center">
-                          {option.labelJa}
+                <Accordion
+                  type="single"
+                  collapsible
+                  value={isIconAccordionOpen ? 'icons' : undefined}
+                  onValueChange={(value) => setIsIconAccordionOpen(value === 'icons')}
+                  className="w-full px-[20px] py-[10px]"
+                >
+                  <AccordionItem value="icons" className="border-b-0">
+                    <AccordionTrigger
+                      className="py-[10px] hover:no-underline [&>svg]:size-6 [&>svg]:rounded-full [&>svg]:bg-[color:var(--accordion-icon-bg)] [&>svg]:p-[4px] [&>svg]:text-[color:var(--accordion-icon-color)]"
+                      style={{
+                        ['--accordion-icon-bg' as string]: `${themeColor}22`,
+                        ['--accordion-icon-color' as string]: themeColor,
+                      }}
+                    >
+                      <div className="flex flex-col items-start gap-[4px]">
+                        <p className={`leading-[20px] text-[#454545] text-[14px] tracking-[0.616px] whitespace-nowrap ${isEnglish
+                          ? "font-['Lato:Medium',sans-serif]"
+                          : "font-['Nunito_Sans_7pt_SemiExpanded:Medium','Noto_Sans_JP:Medium',sans-serif]"
+                          }`}>
+                          アイコン
                         </p>
-                      </button>
-                    ))}
-                  </div>
-                </div>
+                        <p className="text-[12px] leading-[18px] text-[#8b95a7]">
+                          {isIconAccordionOpen ? '閉じる' : 'タップで全て表示'}
+                        </p>
+                      </div>
+                    </AccordionTrigger>
+
+                    <div className={`overflow-hidden transition-[max-height] duration-300 ${isIconAccordionOpen ? 'max-h-[1000px]' : 'max-h-[192px]'}`}>
+                      <div className="grid grid-cols-3 gap-[8px] w-full pb-[8px]">
+                        {HABIT_ICON_OPTIONS.map((option) => (
+                          <button
+                            key={option.value}
+                            type="button"
+                            onClick={() => setFormData({ ...formData, icon: option.value })}
+                            className={`rounded-[12px] border px-[8px] py-[8px] flex flex-col items-center gap-[6px] transition-colors ${formData.icon === option.value ? 'border-current' : 'border-[#e6e6e6]'
+                              }`}
+                            style={{ color: formData.icon === option.value ? themeColor : undefined }}
+                          >
+                            <HabitIcon icon={option.value} color={settings.themeColor} className="size-[44px]" />
+                            <p className="text-[11px] leading-[14px] text-[#454545] tracking-[0.2px] font-['Nunito_Sans_7pt_SemiExpanded:Medium','Noto_Sans_JP:Medium',sans-serif] text-center">
+                              {option.labelJa}
+                            </p>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <AccordionContent className="pb-0" />
+                  </AccordionItem>
+                </Accordion>
               </div>
             </div>
 
